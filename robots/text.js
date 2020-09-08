@@ -2,10 +2,22 @@ const algorithmia = require('algorithmia')
 const algorithmiaApiKey = require('../credentials/algorithmia.json').apiKey
 const sentenceBoundaryDetection = require('sbd')
 
+const watsonApiKey = require('../credentials/watson-nlu.json').apikey
+const NaturalLanguageUnderstandingV1 = require('watson-developer-cloud/natural-language-understanding/v1.js');
+
+const nlu = new NaturalLanguageUnderstandingV1({
+  iam_apikey:watsonApiKey,
+  version: '2020-08-01',
+  url: 'https://gateway.watsonplatform.net/natural-language-understanding/api/'
+});
+
 async function robot(content) {
     await fetchcontentFromWikipedia(content)
     sanitizeContent(content)
     breakContentIntoSentences(content)
+    limitMaximumSentences(content)
+    await fetcKeywordsOfAllSentences(content)
+
 
 
     async function fetchcontentFromWikipedia(content){
@@ -35,8 +47,6 @@ async function robot(content) {
 
             return withoutBlankLinesAndMarkdown.join(' ')
         }
-
-        
         
     }
     
@@ -55,6 +65,38 @@ async function robot(content) {
                image:[]
            })
        })
+    }
+
+    function limitMaximumSentences(content){
+        content.sentences = content.sentences.slice(0, content.maximumSentences)
+    }
+
+    async function fetcKeywordsOfAllSentences(content){
+        for (const sentence of content.sentences){
+            sentence.keywords = await fetchWatsonAndReturnKeywords(sentence.text)
+        }
+    }
+    
+    async function fetchWatsonAndReturnKeywords(sentence){
+        return new Promise((resolve, reject) => {
+
+            nlu.analyze({
+                text:sentence,
+                features:{
+                    keywords: {}
+                }
+            },(error, response) => {
+                if(error) {
+                    throw error
+                }
+            
+                const keywords = response.keywords.map((keywords) => {
+                    return keywords.text
+                })
+
+                resolve(keywords)
+            })
+        })
     }
 
 
