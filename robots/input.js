@@ -25,5 +25,3 @@ function robot() {
 }
 
 module.exports = robot
-
-module.exports = robot
